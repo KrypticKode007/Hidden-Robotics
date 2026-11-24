@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SUITE_DIR="$HOME/kryptic_omni_suite"
-source "$SUITE_DIR/venv/bin/activate"
-export PYTHONPATH="$SUITE_DIR:${PYTHONPATH:-}"
+KAI_DIR="${KAI_DIR:-../kai-007}"
+echo "[TEST] Compiling C++11 zero-copy shared memory ring..."
+make -C "$KAI_DIR" shm_ring
+
+echo "[TEST] Running Frontier Security, SHM & Hybrid Vault test suite..."
+pytest -v "$KAI_DIR/tests/test_frontier_systems.py"
+
+echo "[TEST] All Kai-007 × Hidden-Robotics integration checks passed."
 
 echo "=== [1/4] Checking Supervisord Daemons ==="
 "$SUITE_DIR/bin/omni" status
