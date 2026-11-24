@@ -1,0 +1,20 @@
+lerobot_ros_controller:
+  ros__parameters:
+    # Compute device tuned for MacBook Neo Apple A18 Pro GPU
+    device: "mps"
+    control_frequency_hz: 50.0
+    max_action_delta: 0.15
+
+    # Safety heartbeat topic (must pulse every <1.5s to move actuators)
+    heartbeat_topic: "/kryptic/agent/policy_control/heartbeat"
+    heartbeat_timeout_sec: 1.5
+
+    # ROS 2 Observation & Action Topics (Cyclone DDS Shared Memory)
+    joint_state_topic: "/joint_states"
+    camera_rgb_topic: "/camera/color/image_raw"
+    action_command_topic: "/arm_controller/joint_trajectory"
+
+    # Zenoh Bridge Key Expressions
+    zenoh_action_sub: "kryptic/agent/active_inference/action"
+    zenoh_telemetry_pub: "kryptic/agent/telemetry/joints"
+    
