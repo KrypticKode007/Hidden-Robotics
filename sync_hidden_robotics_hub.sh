@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SUITE_DIR="$HOME/kryptic_omni_suite"
-HUB_DIR="$SUITE_DIR/Hidden-Robotics"
+KAI_DIR="${KAI_DIR:-../kai-007}"
+echo "[SYNC] Synchronizing shared radio, tunnel, and vault modules..."
+
+cp -f "$KAI_DIR/kai_offline_internet.py" ./kai_offline_internet.py
+cp -f "$KAI_DIR/KaiBleWebTunnel.kt" ./KaiBleWebTunnel.kt
+
+python3 consolidate_omni_vault.py --target "$KAI_DIR/kai_vault.db"
+echo "[SYNC] Complete."
 
 mkdir -p "$SUITE_DIR"
 cd "$SUITE_DIR"
