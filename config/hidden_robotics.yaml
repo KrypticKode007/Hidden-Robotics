@@ -1,0 +1,32 @@
+system:
+  name: "Kai-007 x Hidden-Robotics"
+  fail_safe_boot: true
+
+serial_bridge:
+  port: "/dev/ttyACM0"
+  baud_rate: 921600
+  watchdog_timeout_ms: 250
+  heartbeat_interval_ms: 100
+
+esp32_s3_pinout:
+  estop_relay_gpio: 21      # Active-LOW (LOW = HALT, HIGH = ARMED)
+  pwm_left_gpio: 4
+  pwm_right_gpio: 5
+  dir_left_gpio: 6
+  dir_right_gpio: 7
+  status_led_gpio: 2
+
+kinematics_limits:
+  max_linear_mm_s: 1500
+  max_angular_mrad_s: 3140
+
+ros2_topics:
+  cmd_vel: "/kai/cmd_vel"
+  estop: "/kai/estop"
+  telemetry: "/kai/telemetry"
+
+proximity_security:
+  ble_service_uuid: "0000a007-0000-1000-8000-00805f9b34fb"
+  strongbox_ttl_sec: 45
+  min_rssi_dbm: -78
+  
