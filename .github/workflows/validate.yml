@@ -1,0 +1,29 @@
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# Python & Virtual Environments
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Runtime Databases, Logs & PIDs
+shared_vault/
+*.db
+*.db-wal
+*.db-shm
+logs/
+run/
+*.log
+*.pid
+*.sock
+*.bak
+
+# macOS & Local Model Caches
+.DS_Store
+models/
+*.gguf
+*.safetensors
