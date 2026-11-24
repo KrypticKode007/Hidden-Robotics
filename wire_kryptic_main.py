@@ -1,111 +1,61 @@
-cat << 'EOF' > ~/kryptic_omni_suite/wire_kryptic_main.py
-import ast
-import os
-import pathlib
-import shutil
+import asyncio
+import logging
 import sys
+from pathlib import Path
 
-SUITE_DIR = pathlib.Path(os.path.expanduser("~/kryptic_omni_suite"))
-MAIN_PY = SUITE_DIR / "kryptic-agent" / "main.py"
-BACKUP_PY = SUITE_DIR / "kryptic-agent" / "main.py.bak"
+# Ensure sibling kai-007 modules are importable
+KAI_ROOT = Path(__file__).resolve().parent.parent / "kai-007"
+if KAI_ROOT.exists():
+    sys.path.insert(0, str(KAI_ROOT))
 
-HOOK_MARKER = "# === KRYPTIC OMNI-SUITE AUTO-WIRED CLIENT ==="
+from core.brain_frontier_orchestrator import KaiFrontierOrchestrator
+from kai_offline_internet import HybridNetRouter
 
-FASTAPI_APPENDIX = f"""
+logging.basicConfig(level=logging.INFO, format="[OMNI-ROBOTICS] %(message)s")
+log = logging.getLogger("wire_kryptic_main")
 
-{HOOK_MARKER}
-import os as _omni_os
-import sys as _omni_sys
-_omni_sys.path.insert(0, _omni_os.path.expanduser("~/kryptic_omni_suite"))
 
-from pydantic import BaseModel as _OmniBaseModel
-from kryptic_agent_client import KrypticAgentClient as _KrypticAgentClient
+class UnifiedRoboticsHub:
+    def __init__(self, orchestrator: KaiFrontierOrchestrator, net_router: HybridNetRouter):
+        self.orchestrator = orchestrator
+        self.net_router = net_router
+        self.estop_engaged = False
 
-_kryptic_client = _KrypticAgentClient()
+    def trigger_emergency_stop(self, reason: str):
+        self.estop_engaged = True
+        log.critical(f"EMERGENCY STOP ENGAGED: {reason}")
+        # Hook into kryptic_robotics_bridge.py / omni_robotics_mcp.py halt routine
 
-class _GoalPayload(_OmniBaseModel):
-    preferred_obs: list[list[float]]
+    async def execute_robotics_command(self, command_text: str, elevated: bool = True) -> str:
+        if elevated and not self.orchestrator.proximity_guard.is_unlocked:
+            self.trigger_emergency_stop("Android StrongBox proximity lock unverified")
+            challenge = self.orchestrator.proximity_guard.create_challenge()
+            await self.orchestrator.ble_bridge.send_json(challenge)
+            return "BLOCKED: Hardware proximity challenge sent to Android."
 
-class _ObsPayload(_OmniBaseModel):
-    obs_0: int
-    obs_1: int
+        self.estop_engaged = False
+        return await asyncio.to_thread(self.orchestrator.process_prompt, command_text)
 
-@app.post("/robotics/arm")
-async def _omni_arm_robotics():
-    _kryptic_client.start_heartbeat(interval_sec=0.5)
-    return {{"status": "ARMED", "watchdog": "active"}}
+    async def monitor_proximity_watchdog(self):
+        """Continuously enforces dead-man switch while robotics actuators are armed."""
+        while True:
+            ble_connected = (
+                self.orchestrator.ble_bridge.client is not None
+                and self.orchestrator.ble_bridge.client.is_connected
+            )
+            if not ble_connected and not self.estop_engaged:
+                self.trigger_emergency_stop("2.4 GHz BLE radio link lost")
+            await asyncio.sleep(0.25)
 
-@app.post("/robotics/disarm")
-async def _omni_disarm_robotics():
-    _kryptic_client.stop_heartbeat()
-    return {{"status": "DISARMED"}}
-
-@app.post("/robotics/goal")
-async def _omni_set_goal(payload: _GoalPayload):
-    _kryptic_client.send_goal(payload.preferred_obs)
-    return {{"status": "GOAL_DISPATCHED", "preferred_obs": payload.preferred_obs}}
-
-@app.post("/robotics/observe")
-async def _omni_publish_obs(payload: _ObsPayload):
-    _kryptic_client.publish_sensor_reading(payload.obs_0, payload.obs_1)
-    return {{"status": "OBSERVATION_SENT", "obs": [payload.obs_0, payload.obs_1]}}
-"""
-
-def detect_fastapi_app(source: str) -> str | None:
-    """Finds the variable name assigned to FastAPI() in main.py."""
-    tree = ast.parse(source)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
-            func = node.value.func
-            func_name = getattr(func, "id", None) or getattr(func, "attr", None)
-            if func_name == "FastAPI" and node.targets:
-                target = node.targets
-                if isinstance(target, ast.Name):
-                    return target.id
-    return None
-
-def wire_main():
-    if not MAIN_PY.exists():
-        print(f"Error: {MAIN_PY} not found. Verify kryptic-agent is cloned.", file=sys.stderr)
-        sys.exit(1)
-
-    source = MAIN_PY.read_text(encoding="utf-8")
-    if HOOK_MARKER in source:
-        print("kryptic-agent/main.py is already wired with KrypticAgentClient.")
-        return
-
-    shutil.copy2(MAIN_PY, BACKUP_PY)
-    print(f"Backup created at {BACKUP_PY}")
-
-    app_var = detect_fastapi_app(source)
-    if app_var:
-        patched_appendix = FASTAPI_APPENDIX.replace("@app.", f"@{app_var}.")
-        # Insert before `if __name__ == "__main__":` so Uvicorn picks up the new routes
-        guard = 'if __name__ == "__main__":'
-        if guard in source:
-            head, tail = source.split(guard, 1)
-            new_source = head + patched_appendix + "\n\n" + guard + tail
-        else:
-            new_source = source + patched_appendix
-
-        MAIN_PY.write_text(new_source, encoding="utf-8")
-        print(f"Successfully wired KrypticAgentClient onto FastAPI `{app_var}` in {MAIN_PY}")
-    else:
-        # Fallback if main.py uses a custom loop instead of FastAPI
-        header = (
-            f"{HOOK_MARKER}\n"
-            "import os as _omni_os, sys as _omni_sys\n"
-            '_omni_sys.path.insert(0, _omni_os.path.expanduser("~/kryptic_omni_suite"))\n'
-            "from kryptic_agent_client import KrypticAgentClient as _KrypticAgentClient\n"
-            "kryptic_client = _KrypticAgentClient()\n\n"
+    async def run(self):
+        log.info("Starting Unified Kai-007 × Hidden-Robotics Hub...")
+        await asyncio.gather(
+            self.orchestrator.start(),
+            self.monitor_proximity_watchdog(),
+            self.net_router.outbox.process_loop(self._drain_outbox_task),
         )
-        MAIN_PY.write_text(header + source, encoding="utf-8")
-        print(f"Injected `kryptic_client` instance at top of {MAIN_PY} (non-FastAPI loop detected).")
 
-if __name__ == "__main__":
-    wire_main()
-EOF
-
-source ~/kryptic_omni_suite/venv/bin/activate
-python ~/kryptic_omni_suite/wire_kryptic_main.py
-omni restart
+    async def _drain_outbox_task(self, task_type: str, payload: dict) -> str | None:
+        if task_type == "web_search":
+            return await self.net_router.research(payload.get("query", ""))
+        return None
