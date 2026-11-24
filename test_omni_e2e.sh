@@ -20,7 +20,7 @@ from kryptic_agent_client import KrypticAgentClient
 
 received_actions = []
 
-cfg = zenoh.Config.from_json5(json.dumps({"connect": {"endpoints": ["tcp/127.0.0.1:7447"]}}))
+cfg = zenoh.Config.from_json5(json.dumps({"connect": {"endpoints": ["tcp/localhost:7447"]}}))
 sub_session = zenoh.open(cfg)
 sub = sub_session.declare_subscriber(
     "kryptic/agent/active_inference/action",
@@ -55,6 +55,6 @@ finally:
 PYEOF
 
 echo "=== [4/4] Verifying SQLite WAL + FTS5 Shared Vault Recall ==="
-curl -s "http://127.0.0"
+curl -s "http://localhost:8001/recall?q=active_inference_step&limit=1"
 echo ""
 echo "=== ALL END-TO-END CHECKS PASSED ==="
