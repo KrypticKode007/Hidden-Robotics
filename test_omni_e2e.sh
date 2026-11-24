@@ -12,7 +12,7 @@ echo "=== [2/4] Verifying A18 Pro Metal Memory Governor ==="
 python "$SUITE_DIR/mlx_neo_governor.py"
 
 echo "=== [3/4] Running End-to-End Zenoh + Active Inference + Watchdog Loop ==="
-python - << 'EOF'
+python - << 'PYEOF'
 import json
 import time
 import zenoh
@@ -52,7 +52,7 @@ finally:
     sub.undeclare()
     sub_session.close()
     client.close()
-EOF
+PYEOF
 
 echo "=== [4/4] Verifying SQLite WAL + FTS5 Shared Vault Recall ==="
 curl -s "http://127.0.0"
